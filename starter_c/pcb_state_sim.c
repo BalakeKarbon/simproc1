@@ -41,6 +41,7 @@ typedef struct waitQueue {
 	PCB *head;
 	PCB *tail;
 	int size;
+
 } waitQueue;
 
 

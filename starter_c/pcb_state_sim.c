@@ -39,7 +39,7 @@ typedef struct queue{
 } queue;
 
 //This function should be double checked to see if it is running correctly
-void addQueue(PCB *process, queue **Queue){
+void addQueue(queue **Queue, PCB *process){
 	
 	if((*Queue)->size == 0){
 	((*Queue)->head) = process;
@@ -48,11 +48,17 @@ void addQueue(PCB *process, queue **Queue){
 
 	else{
 	PCB cpyProcess;
-	cpyProcess = *((*Queue)->tail);
-	(*Queue)->tail = process;
-	cpyProcess.next = process;
-	}
+  (*Queue)->tail->next = process; 
+  (*Queue)->tail = process;
+  
 
+  /* had to change this because they should all be the same so when read off the the process table they are same process.
+	* cpyProcess = *((*Queue)->tail);
+	* (*Queue)->tail = process;
+	* cpyProcess.next = process;
+	*/
+  }
+  
 	(*Queue)->size = (*Queue)->size + 1; // This would be mildly annoying to type in standard form: (*(*queue)).size. 
 }
 
@@ -92,8 +98,8 @@ int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *processTa
 	process.cpuTime = 0;
 	process.next = NULL;
 
-	addQueue(&process, &rdyQueue);
-  addQueue(&process, &processTable);
+	addQueue(&rdyQueue, &process);
+  addQueue(&processTable, &process);
 
 	return 1;
 	
@@ -109,7 +115,9 @@ int procsimDispatch(queue *rdyQueue, PCB **running){
 	else{
 		PCB process;
 		process = popQueue(rdyQueue);	
-		*running = &process;  
+		*running = &process; 
+    (*running)->state = RUNNING;
+
 	  return 1;
 	}
 }
@@ -126,8 +134,14 @@ int procsimTick(int n){
 
 int procsimBlock(queue *waitQueue, PCB **running){
  
-  
-
+  if((**running).state == NULL){
+    return -1;
+  }
+  else{
+    (**running).state = WAITING;
+    addQueue(&waitQueue, &(**running));
+    (*running) = NULL;
+  }
 
 }
 

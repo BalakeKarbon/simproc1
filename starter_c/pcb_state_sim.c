@@ -12,31 +12,75 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 typedef enum {
 	NEW, READY, RUNNING, WAITING, TERMINATED
 } State;
 
 typedef struct PCB {
 	int pid;
-	char name[32];
+	char name[32]; // Note this is an arbitrary size selection but me may want to change or specify.
 	State state;
 	int priority;
 	int pc;
 	int cpuTime;
-	struct PCB *next;
 } PCB;
 
 
 // PBC *next will point to the PCB behind it
 
+typedef struct ProcessNode {
+	PCB *process;
+	ProcessNode *next;
+} ProcessNode;
 
 // changed rdyQueue and waitQueue because they were the same struct and we need just one queue struct
-typedef struct queue{
-	PCB *head;
-	PCB *tail;
-	int size;
+// NOTE: For our queue implementation we could avoid malloc and some overhead with a fixed size queue like a fixed size c string but this is another way that allows an arbitrary size.
+typedef struct Queue {
+	ProcessNode *head;
+	ProcessNode *tail;
+	int size; // We *may* not need size
+} Queue;
 
-} queue;
+int enQueue(Queue *q, PCB *pcb) {
+	ProcessNode *node = malloc(sizeof(ProcessNode));
+	if(!node) {
+		printf("Dang bro you ran out of memory.");
+		return 0; // False
+	};
+	node->data = pcb;
+	node->next = NULL;
+
+	if(q->tail == NULL) {
+		q->head = q->tail = node;
+	} else {
+		q->tail->next = node; // The tail points to our new node
+		q->tail = node; // Now the tail is our new node so we have pushed the old tail
+	}
+	return 1; // True
+}
+
+PCB *deQueue(Queue *q) {
+	if(q->head == NULL) {
+		return NULL; // Cannot deQueue an empty queue!
+	}
+
+	ProcessNode *tmp = q->head;
+	PCB *pcb = tmp->data;
+	q->head = tmp->next;
+	if(q->head == NULL) {
+		q->tail = NULL;
+	}
+	free(tmp);
+	return pcb;
+}
+
+
+typedef struct KernelState {
+	PCB *running;
+	queue *ready;
+	queue *waiting;
+} KernelState;
 
 //This function should be double checked to see if it is running correctly
 void addQueue(queue **Queue, PCB *process){

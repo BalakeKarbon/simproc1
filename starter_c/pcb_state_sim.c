@@ -38,36 +38,51 @@ typedef struct queue{
 
 } queue;
 
-int procsimNum = 1; // I planned on using this to increment with every create. 
-		    // I Don't know if it works like that in c but we will see --\(-_-)/--
-
-
-
-
-
-
-int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *waitQueue){
+//This function should be double checked to see if it is running correctly
+void addQueue(PCB *process, queue **Queue){
 	
+	if((*Queue)->size == 0){
+	((*Queue)->head) = process;
+	((*Queue)->tail) = process;
+	}
+
+	else{
+	PCB cpyProcess;
+	cpyProcess = *((*Queue)->tail);
+	(*Queue)->tail = process;
+	cpyProcess.next = process;
+	}
+
+	(*Queue)->size = (*Queue)->size + 1; // This would be mildly annoying to type in standard form: (*(*queue)).size. 
+}
+
+PCB popQueue(queue *Queue){//assumes that the list is not empty
+	PCB process;
+	process = *(Queue->head);
+	Queue->head = process.next;	
+	return process;
+}
+
+
+
+
+int procsimNum = 1; // I planned on using this to increment with every create. 
+
+
+int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *processTable){
+  // I saw that we need a process table so we can simplifiy this to be just checking the process table.
+
 	PCB *search = rdyQueue->head;
-	while(search->next != NULL || rdyQueue->size != 0){
+	while(search->next != NULL || processTable->size != 0){
 		if (strcmp(search->name, name) == 0) {
 			return -1;
 		}
 		search = search->next;
 	}
-	search = waitQueue->head;
-	while((search->next) != NULL || (*waitQueue).size != 0){
-		if (strcmp(search->name, name) == 0) {
-			return -1;
-		}
-		search = (search->next);
-	}
-
 
 	PCB process; // if we were feeling extra saucy we could allocate this to the heap with malloc to save precious stack space 
 		     // In a larger system that would make sense.
 	
-
 	strcpy(process.name, name);
 	process.pid = procsimNum;
 	procsimNum++;
@@ -75,21 +90,10 @@ int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *waitQueue
 	process.priority = priority;
 	process.pc = 0;
 	process.cpuTime = 0;
+	process.next = NULL;
 
-	PCB cpyProcess;
-
-	if(rdyQueue->size == 0){
-	rdyQueue->head = &process;
-	rdyQueue->tail = &process;
-	rdyQueue->size = rdyQueue->size + 1;
-	}
-	else{
-	cpyProcess = *(rdyQueue->tail);
-	rdyQueue->tail = &process;
-	cpyProcess.next = &process;
-
-	rdyQueue->size = rdyQueue->size + 1;
-	}
+	addQueue(&process, &rdyQueue);
+  addQueue(&process, &processTable);
 
 	return 1;
 	
@@ -98,31 +102,50 @@ int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *waitQueue
 
 
 int procsimDispatch(queue *rdyQueue, PCB **running){
-	return 0;
+	
+	if((*running)->state == RUNNING){
+		return -1;
+	}
+	else{
+		PCB process;
+		process = popQueue(rdyQueue);	
+		*running = &process;  
+	  return 1;
+	}
 }
 
 
 
 int procsimTick(int n){
+
+
 	return 0;
 }
 
 
 
-int procsimBlock(char name[], PCB **running){
-	return 0;
+int procsimBlock(queue *waitQueue, PCB **running){
+ 
+  
+
+
 }
 
 
 
 int procsimWake(char name[], queue *waitQueue){
 
+
+
 	return 0;
 }
 
 
 
-int procsimExit(char name[]){
+int procsimExit(PCB **running){
+  
+
+
 	return 0;
 }
 
@@ -152,8 +175,8 @@ int main(int argc, char *argv[]) {
 	// TODO: dispatch commands
 	queue rdyQueue;
 	queue waitQueue;
-	PCB *running;	
-	
+	PCB *running = NULL;	
+  queue processTable;
 
 	if (argc < 2) {
 		fprintf(stderr, "Usage: %s <filename>\n", argv[0]);

@@ -1,7 +1,7 @@
 /*
  * CS 440 – PCB Simulator Starter (C)
  * Michael Gavina: 801970144
- *
+ * Blake Karbon: 801945974
  *
  * TODO: Add your name(s) and BearID(s)
  */
@@ -48,6 +48,7 @@ typedef struct Queue {
 } Queue;
 
 typedef struct KernelState {
+  int step;
   PCB *running;
   Queue *ready;
   Queue *waiting;
@@ -322,22 +323,22 @@ int main(int argc, char *argv[]) {
 
   while (fgets(line, sizeof(line), file)) {
     if (sscanf(line, "%255s", firstWord) == 1) {
+      ks->step++;
       printf("First word: %s\n", firstWord);
-
       if (strcmp(firstWord, "CREATE") == 0) {
-        printf("CREATE\n");
+        printf("%d CREATE\n",ks->step);
       } else if (strcmp(firstWord, "DISPATCH") == 0) {
-        printf("DISPATCH\n");
+        printf("%d DISPATCH\n",ks->step);
       } else if (strcmp(firstWord, "TICK") == 0) {
-        printf("TICK\n");
+        printf("%d TICK\n",ks->step);
       } else if (strcmp(firstWord, "BLOCK") == 0) {
-        printf("BLOCK\n");
+        printf("%d BLOCK\n",ks->step);
       } else if (strcmp(firstWord, "WAKE") == 0) {
-        printf("WAKE\n");
+        printf("%d WAKE\n",ks->step);
       } else if (strcmp(firstWord, "EXIT") == 0) {
-        printf("EXIT\n");
+        printf("%d EXIT\n",ks->step);
       } else if (strcmp(firstWord, "STATUS") == 0) {
-        printf("STATUS\n");
+        printf("%d STATUS\n",ks->step);
       } else if (strcmp(firstWord, "#") == 0); // ignoring comments 
         else {
         printf("Command Unknown?\n");

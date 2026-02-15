@@ -258,7 +258,7 @@ void procsimStatus(KernelState *ks) {
     if(chain == NULL);
     else printf(" %s",chain->process->name);
     }
-  prinf("]\n");
+  printf("]\n");
 
   chain = ks->waiting->head;
 

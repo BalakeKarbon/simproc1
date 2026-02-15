@@ -150,13 +150,13 @@ int procsimCreate(char name[32], int priority, KernelState *ks) {
   process->cpuTime = 0;
 
   int returnCode = enQueue(ks->ready, process); //this might make overhead
-  if (returnCode == -0) {
+  if (returnCode == 0) {
     return -1; // memory error
   }
   
   
   returnCode = enQueue(ks->processTable, process);
-  if (returnCode == -0) {
+  if (returnCode == 0) {
     return -1; // memory error
   }
   process->state = READY; 
@@ -269,7 +269,7 @@ void procsimStatus(KernelState *ks) {
     if(chain == NULL);
     else printf(" %s",chain->process->name);
   }
-  prinf("]\n");
+  printf("]\n");
   
   printf("TABLE:\n");
   printf("PID\tNAME\tSTATE\tPRIO\tPC\tCPUTIME\n");
@@ -297,11 +297,15 @@ int main(int argc, char *argv[]) {
   // TODO: parse args
   // TODO: read trace file
   // TODO: dispatch commands
-  KernelState ks;
-  ks.ready = (Queue *)malloc(sizeof(Queue));
-  ks.waiting = (Queue *)malloc(sizeof(Queue));
-  ks.running = (PCB *)malloc(sizeof(PCB));
-  ks.processTable = (Queue *)malloc(sizeof(Queue));
+  // TODO: implement command handlers
+ 
+  const int STATUS_STEPS = 7;
+
+  KernelState *ks = (KernelState *)malloc(sizeof(KernelState));
+  ks->ready = (Queue *)malloc(sizeof(Queue));
+  ks->waiting = (Queue *)malloc(sizeof(Queue));
+  ks->processTable = (Queue *)malloc(sizeof(Queue));
+ 
 
   if (argc < 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
@@ -334,14 +338,68 @@ int main(int argc, char *argv[]) {
         printf("EXIT\n");
       } else if (strcmp(firstWord, "STATUS") == 0) {
         printf("STATUS\n");
-      } else {
+      } else if (strcmp(firstWord, "#") == 0); // ignoring comments 
+        else {
         printf("Command Unknown?\n");
       }
     }
   }
 
   fclose(file);
+ 
+  if(ks->running != NULL){
+    free(ks->running);
+    ks->running = NULL;
+  }
+  
+  ProcessNode *memoryFree = ks->processTable->head; // I think that if I free the all of the process on the process table, I can just free the processNodes in each queue.
+  ks->processTable->head = ks->processTable->tail = NULL;
+  
+  while(memoryFree != NULL){
+    if(memoryFree->process != NULL){ // there should be one process that will be NULL, if there is one in running
+      free(memoryFree->process);
+      memoryFree->process = NULL;
+    }
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+ 
+  } 
+
+  memoryFree = NULL;
+  free(ks->processTable);
+  ks->processTable = NULL;
+
+  memoryFree = ks->ready->head;
+  ks->ready->head = ks->ready->tail = NULL;
+  
+  while(memoryFree != NULL){
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+  }
+
+  memoryFree = NULL;
+  free(ks->ready);
+  ks->ready = NULL;
+
+
+  memoryFree = ks->waiting->head;
+  ks->waiting->head = ks->waiting->tail = NULL;
+  
+  while(memoryFree != NULL){
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+  }
+
+  memoryFree = NULL;
+  free(ks->waiting);
+  ks->waiting = NULL;
+
   return 0;
 }
 
-// TODO: implement command handlers

@@ -1,0 +1,51 @@
+BearID last digit: 4
+Auto STATUS every: 7 steps
+
+---- BEGIN LOG ----
+[step=1] CMD=CREATE P1 3 | OK | P1: NEW -> READY (pid=1)
+[step=2] CMD=CREATE P2 1 | OK | P2: NEW -> READY (pid=2)
+[step=3] CMD=CREATE P3 2 | OK | P3: NEW -> READY (pid=3)
+[step=4] CMD=CREATE P4 5 | OK | P4: NEW -> READY (pid=4)
+[step=5] CMD=DISPATCH | OK | P1: READY -> RUNNING
+[step=6] CMD=TICK 2 | OK | P1: pc+=2 cpuTime+=2
+[step=7] CMD=BLOCK P1 | OK | P1: RUNNING -> WAITING
+RUNNING: NONE
+READY: [P2, P3, P4]
+WAITING: [P1]
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       WAITING    3    2    2      
+2    P2       READY      1    0    0      
+3    P3       READY      2    0    0      
+4    P4       READY      5    0    0      
+[step=8] CMD=DISPATCH | OK | P2: READY -> RUNNING
+[step=9] CMD=TICK 1 | OK | P2: pc+=1 cpuTime+=1
+[step=10] CMD=KILL P3 | OK | P3: READY -> TERMINATED (removed from READY)
+[step=11] CMD=BLOCK P2 | OK | P2: RUNNING -> WAITING
+[step=12] CMD=DISPATCH | OK | P4: READY -> RUNNING
+[step=13] CMD=TICK 2 | OK | P4: pc+=2 cpuTime+=2
+[step=14] CMD=WAKE P1 | OK | P1: WAITING -> READY
+RUNNING: P4
+READY: [P1]
+WAITING: [P2]
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       READY      3    2    2      
+2    P2       WAITING    1    1    1      
+3    P3       TERMINATED 2    0    0      
+4    P4       RUNNING    5    2    2      
+[step=15] CMD=KILL P4 | OK | P4: RUNNING -> TERMINATED (CPU now NONE)
+[step=16] CMD=KILL P1 | OK | P1: READY -> TERMINATED (removed from READY)
+[step=17] CMD=KILL P2 | OK | P2: WAITING -> TERMINATED (removed from WAITING)
+[step=18] CMD=DISPATCH | ERROR | no READY processes
+[step=19] CMD=STATUS | OK
+RUNNING: NONE
+READY: []
+WAITING: []
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       TERMINATED 3    2    2      
+2    P2       TERMINATED 1    1    1      
+3    P3       TERMINATED 2    0    0      
+4    P4       TERMINATED 5    2    2      
+---- END LOG ----

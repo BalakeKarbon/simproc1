@@ -1,0 +1,42 @@
+BearID last digit: 4
+Auto STATUS every: 7 steps
+
+---- BEGIN LOG ----
+[step=1] CMD=CREATE P1 2 | OK | P1: NEW -> READY (pid=1)
+[step=2] CMD=CREATE P2 4 | OK | P2: NEW -> READY (pid=2)
+[step=3] CMD=BLOCK P1 | ERROR | no process running
+[step=4] CMD=WAKE P1 | ERROR | process P1 not in WAITING
+[step=5] CMD=DISPATCH | OK | P1: READY -> RUNNING
+[step=6] CMD=DISPATCH | ERROR | CPU already running P1
+[step=7] CMD=TICK 3 | OK | P1: pc+=3 cpuTime+=3
+RUNNING: P1
+READY: [P2]
+WAITING: []
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       RUNNING    2    3    3      
+2    P2       READY      4    0    0      
+[step=8] CMD=DISPATCH | ERROR | CPU already running P1
+[step=9] CMD=EXIT P3 | ERROR | process P3 is not RUNNING
+[step=10] CMD=BLOCK P2 | ERROR | process P2 is not RUNNING
+[step=11] CMD=TICK 2 | OK | P1: pc+=2 cpuTime+=2
+[step=12] CMD=WAKE P2 | ERROR | process P2 not in WAITING
+[step=13] CMD=EXIT P2 | ERROR | process P2 is not RUNNING
+[step=14] CMD=EXIT P2 | ERROR | process P2 is not RUNNING
+RUNNING: P1
+READY: [P2]
+WAITING: []
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       RUNNING    2    5    5      
+2    P2       READY      4    0    0      
+[step=15] CMD=TICK 1 | OK | P1: pc+=1 cpuTime+=1
+[step=16] CMD=STATUS | OK
+RUNNING: P1
+READY: [P2]
+WAITING: []
+TABLE:
+PID  NAME     STATE      PRIO PC   CPUTIME
+1    P1       RUNNING    2    6    6      
+2    P2       READY      4    0    0      
+---- END LOG ----

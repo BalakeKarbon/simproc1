@@ -179,7 +179,15 @@ int procsimDispatch(KernelState *ks) {
   return 1;
 }
 
-int procsimTick(int n) { return 1; }
+int procsimTick(int n, KernelState* ks) { 
+  if(ks->running == NULL){
+    return 0; //nothing to increase
+  }
+  
+  ks->running->cpuTime = ks->running->cpuTime + n;
+  ks->running->pc = ks->running->pc + n;
+  return 1; 
+}
 
 int procsimBlock(char name[32], KernelState *ks) {
   if (!ks->running) {
@@ -241,7 +249,7 @@ int main(int argc, char *argv[]) {
   ks.ready = (Queue *)malloc(sizeof(Queue));
   ks.waiting = (Queue *)malloc(sizeof(Queue));
   ks.running = (PCB *)malloc(sizeof(PCB));
-  ks.processTable = (Queue *)malloc(sizeOf(Queue));
+  ks.processTable = (Queue *)malloc(sizeof(Queue));
 
   if (argc < 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);

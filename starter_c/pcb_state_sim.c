@@ -19,8 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+//              0     1       2        3          4
 typedef enum { NEW, READY, RUNNING, WAITING, TERMINATED } State;
+
+const char *states[] = {"NEW", "READY", "RUNNING", "WAITING", "TERMINATED"};
+
 
 //start of structs
 
@@ -141,7 +144,7 @@ int procsimCreate(char name[32], int priority, KernelState *ks) {
   strcpy(process->name, name);
   process->pid = procsimNum;
   procsimNum++;
-  process->state = READY;
+  process->state = NEW;
   process->priority = priority;
   process->pc = 0;
   process->cpuTime = 0;
@@ -156,7 +159,7 @@ int procsimCreate(char name[32], int priority, KernelState *ks) {
   if (returnCode == -0) {
     return -1; // memory error
   }
-  
+  process->state = READY; 
   return 1;
 }
 
@@ -218,6 +221,7 @@ int procsimWake(char name[32], KernelState *ks) {
   }
   
   int returnCode = enQueue(ks->ready, process);
+  process->state = READY;
 
   if(returnCode == 0){
     return -2; //Memory error
@@ -226,9 +230,57 @@ int procsimWake(char name[32], KernelState *ks) {
   return 1; 
 }
 
-int procsimExit(KernelState *ks) { return 1; }
+int procsimExit(KernelState *ks) { 
+  if(ks->running == NULL){
+    return 0; // no process running
+  }
+  PCB *process = ks->running;
+  ks->running = NULL;
+  process->state = TERMINATED; // Can't be freed yet because needed with process table
+  return 1;
+}
 
-void procsimStatus(KernelState *ks) {}
+void procsimStatus(KernelState *ks) {
+  printf("RUNNING:");
+  if(ks->running == NULL){
+  printf(" NONE\n");
+  }
+  else{
+  printf(" %s\n", ks->running->name);
+  }
+  
+  ProcessNode *chain = ks->ready->head;
+
+  printf("READY: [");
+  while(chain != NULL){
+    printf(",");
+    chain = chain->next;
+    if(chain == NULL);
+    else printf(" %s",chain->process->name);
+    }
+  prinf("]\n");
+
+  chain = ks->waiting->head;
+
+  printf("WAITING: [");
+  while(chain != NULL){
+    printf(",");
+    chain = chain->next;
+    if(chain == NULL);
+    else printf(" %s",chain->process->name);
+  }
+  prinf("]\n");
+  
+  printf("TABLE:\n");
+  printf("PID\tNAME\tSTATE\tPRIO\tPC\tCPUTIME\n");
+ 
+  chain = ks->processTable->head;
+
+  while(chain != NULL){
+  printf("%d\t%s\t%s\t%d\t%d\t%d\t%d\n", chain->process->pid, chain->process->name, states[chain->process->state],chain->process->priority,chain->process->pc,chain->process->cpuTime);
+  chain = chain->next;
+  }
+}
 
 int procsimKill(char name[], KernelState *ks) { return 1; }
 

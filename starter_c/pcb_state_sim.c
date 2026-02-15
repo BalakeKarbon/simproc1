@@ -6,219 +6,285 @@
  * TODO: Add your name(s) and BearID(s)
  */
 
+  
+// TODO: Please add your name Blake and bear number
 
+
+// NOTE: For our queue implementation we could avoid malloc and some overhead with a fixed size queue like a fixed size c string but this is another way that allows an arbitrary size.
+
+// NOTE: I wasn't sure if when he makes his own examples, that he would have more then the amount of processes we have in the test files. Fixed would be very fast. The sizing of the processes was never addressed in the document
+
+// Sorry for any weird formating
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+//              0     1       2        3          4
+typedef enum { NEW, READY, RUNNING, WAITING, TERMINATED } State;
+
+const char *states[] = {"NEW", "READY", "RUNNING", "WAITING", "TERMINATED"};
 
 
-typedef enum {
-	NEW, READY, RUNNING, WAITING, TERMINATED
-} State;
+//start of structs
 
 typedef struct PCB {
-	int pid;
-	char name[32]; // Note this is an arbitrary size selection but me may want to change or specify.
-	State state;
-	int priority;
-	int pc;
-	int cpuTime;
+  int pid;
+  char name[32]; // Note this is an arbitrary size selection but me may want to change or specify.
+  State state;
+  int priority;
+  int pc;
+  int cpuTime;
 } PCB;
 
-
-// PBC *next will point to the PCB behind it
-
 typedef struct ProcessNode {
-	PCB *process;
-	ProcessNode *next;
+  PCB *process;
+  struct ProcessNode *next; // this didn't work before because the typedef is not declared until after the struct is done
 } ProcessNode;
 
-// changed rdyQueue and waitQueue because they were the same struct and we need just one queue struct
-// NOTE: For our queue implementation we could avoid malloc and some overhead with a fixed size queue like a fixed size c string but this is another way that allows an arbitrary size.
 typedef struct Queue {
-	ProcessNode *head;
-	ProcessNode *tail;
-	int size; // We *may* not need size
+  ProcessNode *head;
+  ProcessNode *tail;
+  int size;
 } Queue;
 
-int enQueue(Queue *q, PCB *pcb) {
-	ProcessNode *node = malloc(sizeof(ProcessNode));
-	if(!node) {
-		printf("Dang bro you ran out of memory.");
-		return 0; // False
-	};
-	node->data = pcb;
-	node->next = NULL;
+typedef struct KernelState {
+  PCB *running;
+  Queue *ready;
+  Queue *waiting;
+  Queue *processTable; //I think that this is needed because of status, and could be very useful when freeing memory 
+} KernelState;
 
-	if(q->tail == NULL) {
-		q->head = q->tail = node;
-	} else {
-		q->tail->next = node; // The tail points to our new node
-		q->tail = node; // Now the tail is our new node so we have pushed the old tail
-	}
-	return 1; // True
+// end of structs
+
+// start of queue functions
+
+int enQueue(Queue *q, PCB *pcb) {
+  ProcessNode *node = (ProcessNode *)malloc(sizeof(ProcessNode));
+  if (!node) {
+    printf("Dang bro you ran out of memory.");
+    return 0; // False
+  };
+  // node->data = pcb // this is the original line but I'm pretty sure the process pointer is meant to be pointing to the pcb?
+  node->process = pcb;
+  node->next = NULL;
+
+  if (q->tail == NULL) {
+    q->head = q->tail = node;
+  } else {
+    q->tail->next = node; // The tail points to our new node
+    q->tail = node; // Now the tail is our new node so we have pushed the old tail
+  }
+  return 1; // True
 }
 
 PCB *deQueue(Queue *q) {
-	if(q->head == NULL) {
-		return NULL; // Cannot deQueue an empty queue!
-	}
+  if (q->head == NULL) {
+    return NULL; // Cannot deQueue an empty queue!
+  }
 
-	ProcessNode *tmp = q->head;
-	PCB *pcb = tmp->data;
-	q->head = tmp->next;
-	if(q->head == NULL) {
-		q->tail = NULL;
-	}
-	free(tmp);
-	return pcb;
+  ProcessNode *tmp = q->head;
+  PCB *pcb = tmp->process;
+  q->head = tmp->next;
+  if (q->head == NULL) {
+    q->tail = NULL;
+  }
+  free(tmp);
+  tmp = NULL; // dangling pointer
+  return pcb;
 }
 
-
-typedef struct KernelState {
-	PCB *running;
-	queue *ready;
-	queue *waiting;
-} KernelState;
-
-//This function should be double checked to see if it is running correctly
-void addQueue(queue **Queue, PCB *process){
-	
-	if((*Queue)->size == 0){
-	((*Queue)->head) = process;
-	((*Queue)->tail) = process;
-	}
-
-	else{
-	PCB cpyProcess;
-  (*Queue)->tail->next = process; 
-  (*Queue)->tail = process;
-  
-
-  /* had to change this because they should all be the same so when read off the the process table they are same process.
-	* cpyProcess = *((*Queue)->tail);
-	* (*Queue)->tail = process;
-	* cpyProcess.next = process;
-	*/
+PCB *removeQueue(Queue *q, char name[32]) { //this won't a problem for kill, just take the pointer and free it
+  PCB *process;
+    if(q->head == NULL){
+    return NULL;
   }
   
-	(*Queue)->size = (*Queue)->size + 1; // This would be mildly annoying to type in standard form: (*(*queue)).size. 
+  ProcessNode *right = q->head->next;
+  ProcessNode *left = q->head;
+  
+  if(strcmp(left->process->name, name) == 0){
+    process = deQueue(q);
+    return process;
+  }
+
+  while(right != NULL){
+    if(strcmp(right->process->name, name) == 0){
+      process = right->process;
+      left->next = right->next;
+      free(right);
+      right = NULL;
+      return process;
+    }
+    left = right;
+    right = right->next;
+  }
+  return NULL; // Unable to find process name
 }
 
-PCB popQueue(queue *Queue){//assumes that the list is not empty
-	PCB process;
-	process = *(Queue->head);
-	Queue->head = process.next;	
-	return process;
-}
+// end of queue functions
 
 
+// start of procsim functions
 
+int procsimNum = 1; // I planned on using this to increment with every create.
 
-int procsimNum = 1; // I planned on using this to increment with every create. 
-
-
-int procsimCreate(char name[32], int priority, queue *rdyQueue, queue *processTable){
+int procsimCreate(char name[32], int priority, KernelState *ks) {
   // I saw that we need a process table so we can simplifiy this to be just checking the process table.
 
-	PCB *search = rdyQueue->head;
-	while(search->next != NULL || processTable->size != 0){
-		if (strcmp(search->name, name) == 0) {
-			return -1;
-		}
-		search = search->next;
-	}
+  ProcessNode *search = ks->processTable->head;
+  while (search->next == NULL) {
+    if (strcmp(search->process->name, name) == 0) {
+      return 0; // process already made
+    }
+    search = search->next;
+  }
 
-	PCB process; // if we were feeling extra saucy we could allocate this to the heap with malloc to save precious stack space 
-		     // In a larger system that would make sense.
-	
-	strcpy(process.name, name);
-	process.pid = procsimNum;
-	procsimNum++;
-	process.state = READY;	
-	process.priority = priority;
-	process.pc = 0;
-	process.cpuTime = 0;
-	process.next = NULL;
+  PCB *process = (PCB *)malloc(sizeof(PCB));
 
-	addQueue(&rdyQueue, &process);
-  addQueue(&processTable, &process);
+  strcpy(process->name, name);
+  process->pid = procsimNum;
+  procsimNum++;
+  process->state = NEW;
+  process->priority = priority;
+  process->pc = 0;
+  process->cpuTime = 0;
 
-	return 1;
-	
+  int returnCode = enQueue(ks->ready, process); //this might make overhead
+  if (returnCode == 0) {
+    return -1; // memory error
+  }
+  
+  
+  returnCode = enQueue(ks->processTable, process);
+  if (returnCode == 0) {
+    return -1; // memory error
+  }
+  process->state = READY; 
+  return 1;
 }
 
+int procsimDispatch(KernelState *ks) {
 
+  if (ks->running->state == RUNNING) {
+    return 0; // process already running
+  } else if (ks->ready->size <= 0) {
+    return -1; // no processes in ready
+  }
+  PCB *tmp;
 
-int procsimDispatch(queue *rdyQueue, PCB **running){
-	
-	if((*running)->state == RUNNING){
-		return -1;
-	}
-	else{
-		PCB process;
-		process = popQueue(rdyQueue);	
-		*running = &process; 
-    (*running)->state = RUNNING;
+  tmp = deQueue(ks->ready);
+  if (!tmp) {
+    return -1; // no processes in ready
+  }
+  tmp->state = RUNNING;
+  ks->running = tmp;
 
-	  return 1;
-	}
+  return 1;
 }
 
-
-
-int procsimTick(int n){
-
-
-	return 0;
+int procsimTick(int n, KernelState* ks) { 
+  if(ks->running == NULL){
+    return 0; //nothing to increase
+  }
+  
+  ks->running->cpuTime = ks->running->cpuTime + n;
+  ks->running->pc = ks->running->pc + n;
+  return 1; 
 }
 
+int procsimBlock(char name[32], KernelState *ks) {
+  if (!ks->running) {
+    return 0; // no process in the running pointer
+  } else if (ks->running->state != RUNNING) {
+    return -1; // Something has messed up
+  }
+  int returnCode = enQueue(ks->waiting, ks->running); // queue, PCB
+  if (returnCode == 0) {
+    return -2; // memory error
+  }
 
+  ks->running = NULL;
 
-int procsimBlock(queue *waitQueue, PCB **running){
- 
-  if((**running).state == NULL){
-    return -1;
+  return 1;
+}
+
+int procsimWake(char name[32], KernelState *ks) { 
+  PCB *process;
+  if(ks->waiting == NULL){
+    return 0; // wating is empty, nothing to wake
+  }
+  
+  process = removeQueue(ks->waiting, name);
+
+  if(!process){
+    return -1; // there was no process with that name in waiting
+  }
+  
+  int returnCode = enQueue(ks->ready, process);
+  process->state = READY;
+
+  if(returnCode == 0){
+    return -2; //Memory error
+  }
+
+  return 1; 
+}
+
+int procsimExit(KernelState *ks) { 
+  if(ks->running == NULL){
+    return 0; // no process running
+  }
+  PCB *process = ks->running;
+  ks->running = NULL;
+  process->state = TERMINATED; // Can't be freed yet because needed with process table
+  return 1;
+}
+
+void procsimStatus(KernelState *ks) {
+  printf("RUNNING:");
+  if(ks->running == NULL){
+  printf(" NONE\n");
   }
   else{
-    (**running).state = WAITING;
-    addQueue(&waitQueue, &(**running));
-    (*running) = NULL;
+  printf(" %s\n", ks->running->name);
   }
-
-}
-
-
-
-int procsimWake(char name[], queue *waitQueue){
-
-
-
-	return 0;
-}
-
-
-
-int procsimExit(PCB **running){
   
+  ProcessNode *chain = ks->ready->head;
 
+  printf("READY: [");
+  while(chain != NULL){
+    printf(",");
+    chain = chain->next;
+    if(chain == NULL);
+    else printf(" %s",chain->process->name);
+    }
+  printf("]\n");
 
-	return 0;
+  chain = ks->waiting->head;
+
+  printf("WAITING: [");
+  while(chain != NULL){
+    printf(",");
+    chain = chain->next;
+    if(chain == NULL);
+    else printf(" %s",chain->process->name);
+  }
+  printf("]\n");
+  
+  printf("TABLE:\n");
+  printf("PID\tNAME\tSTATE\tPRIO\tPC\tCPUTIME\n");
+ 
+  chain = ks->processTable->head;
+
+  while(chain != NULL){
+  printf("%d\t%s\t%s\t%d\t%d\t%d\t%d\n", chain->process->pid, chain->process->name, states[chain->process->state],chain->process->priority,chain->process->pc,chain->process->cpuTime);
+  chain = chain->next;
+  }
 }
 
+int procsimKill(char name[], KernelState *ks) { return 1; }
 
-
-void procsimStatus(){
-	
-}
-
-
-
-int procsimKill(char name[], queue *rdyQueue, queue *waitQueue, PCB **running){
-	return 0;
-}
-
+// end of procsim functions
 
 
 // TODO: process table
@@ -228,53 +294,112 @@ int procsimKill(char name[], queue *rdyQueue, queue *waitQueue, PCB **running){
 // TODO: BearID auto-STATUS interval
 
 int main(int argc, char *argv[]) {
-	// TODO: parse args
-	// TODO: read trace file
-	// TODO: dispatch commands
-	queue rdyQueue;
-	queue waitQueue;
-	PCB *running = NULL;	
-  queue processTable;
+  // TODO: parse args
+  // TODO: read trace file
+  // TODO: dispatch commands
+  // TODO: implement command handlers
+ 
+  const int STATUS_STEPS = 7;
 
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
-		return 1;
-	}
-	FILE *file = fopen(argv[1], "r");
-	if (!file) {
-		perror("fopen");
-		return 1;
-	}
+  KernelState *ks = (KernelState *)malloc(sizeof(KernelState));
+  ks->ready = (Queue *)malloc(sizeof(Queue));
+  ks->waiting = (Queue *)malloc(sizeof(Queue));
+  ks->processTable = (Queue *)malloc(sizeof(Queue));
+ 
 
-	char line[256];
-	char firstWord[256];
+  if (argc < 2) {
+    fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+    return 1;
+  }
+  FILE *file = fopen(argv[1], "r");
+  if (!file) {
+    perror("fopen");
+    return 1;
+  }
 
-	while (fgets(line, sizeof(line), file)) {
-		if (sscanf(line, "%255s", firstWord) == 1) {
-			printf("First word: %s\n", firstWord);
+  char line[256];
+  char firstWord[256];
 
-			if (strcmp(firstWord, "CREATE") == 0) {
-				printf("CREATE\n");
-			} else if(strcmp(firstWord, "DISPATCH") == 0) {
-				printf("DISPATCH\n");
-			} else if(strcmp(firstWord, "TICK") == 0) {
-				printf("TICK\n");
-			} else if(strcmp(firstWord, "BLOCK") == 0) {
-				printf("BLOCK\n");
-			} else if(strcmp(firstWord, "WAKE") == 0) {
-				printf("WAKE\n");
-			} else if(strcmp(firstWord, "EXIT") == 0) {
-				printf("EXIT\n");
-			} else if(strcmp(firstWord, "STATUS") == 0) {
-				printf("STATUS\n");
-			} else {
-				printf("Command Unknown?\n");
-			}
-		}
-	}
+  while (fgets(line, sizeof(line), file)) {
+    if (sscanf(line, "%255s", firstWord) == 1) {
+      printf("First word: %s\n", firstWord);
 
-	fclose(file);
-	return 0;
+      if (strcmp(firstWord, "CREATE") == 0) {
+        printf("CREATE\n");
+      } else if (strcmp(firstWord, "DISPATCH") == 0) {
+        printf("DISPATCH\n");
+      } else if (strcmp(firstWord, "TICK") == 0) {
+        printf("TICK\n");
+      } else if (strcmp(firstWord, "BLOCK") == 0) {
+        printf("BLOCK\n");
+      } else if (strcmp(firstWord, "WAKE") == 0) {
+        printf("WAKE\n");
+      } else if (strcmp(firstWord, "EXIT") == 0) {
+        printf("EXIT\n");
+      } else if (strcmp(firstWord, "STATUS") == 0) {
+        printf("STATUS\n");
+      } else if (strcmp(firstWord, "#") == 0); // ignoring comments 
+        else {
+        printf("Command Unknown?\n");
+      }
+    }
+  }
+
+  fclose(file);
+ 
+  if(ks->running != NULL){
+    free(ks->running);
+    ks->running = NULL;
+  }
+  
+  ProcessNode *memoryFree = ks->processTable->head; // I think that if I free the all of the process on the process table, I can just free the processNodes in each queue.
+  ks->processTable->head = ks->processTable->tail = NULL;
+  
+  while(memoryFree != NULL){
+    if(memoryFree->process != NULL){ // there should be one process that will be NULL, if there is one in running
+      free(memoryFree->process);
+      memoryFree->process = NULL;
+    }
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+ 
+  } 
+
+  memoryFree = NULL;
+  free(ks->processTable);
+  ks->processTable = NULL;
+
+  memoryFree = ks->ready->head;
+  ks->ready->head = ks->ready->tail = NULL;
+  
+  while(memoryFree != NULL){
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+  }
+
+  memoryFree = NULL;
+  free(ks->ready);
+  ks->ready = NULL;
+
+
+  memoryFree = ks->waiting->head;
+  ks->waiting->head = ks->waiting->tail = NULL;
+  
+  while(memoryFree != NULL){
+    ProcessNode *tmp = memoryFree;
+    memoryFree = memoryFree->next;
+    free(tmp);
+    tmp = NULL;
+  }
+
+  memoryFree = NULL;
+  free(ks->waiting);
+  ks->waiting = NULL;
+
+  return 0;
 }
 
-// TODO: implement command handlers

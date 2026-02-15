@@ -62,7 +62,7 @@ typedef struct KernelState {
 int enQueue(Queue *q, PCB *pcb) {
   ProcessNode *node = (ProcessNode *)malloc(sizeof(ProcessNode));
   if (!node) {
-    printf("Dang bro you ran out of memory.");
+    fprintf(stderr, "Dang bro you ran out of memory.\n");
     return 0; // False
   };
   // node->data = pcb // this is the original line but I'm pretty sure the process pointer is meant to be pointing to the pcb?
@@ -322,25 +322,36 @@ int main(int argc, char *argv[]) {
   char firstWord[256];
 
   while (fgets(line, sizeof(line), file)) {
-    if (sscanf(line, "%255s", firstWord) == 1) {
+    if (sscanf(line, "%31s", firstWord) == 1) {
+      printf("%s",line);
       ks->step++;
       printf("First word: %s\n", firstWord);
       if (strcmp(firstWord, "CREATE") == 0) {
         printf("%d CREATE\n",ks->step);
+	PCB *new = malloc(sizeof(PCB));
+	sscanf(line, "%*s %31s %d", new->name, &new->priority);
+	enQueue(ks->ready, new); // We may have a function for these.
       } else if (strcmp(firstWord, "DISPATCH") == 0) {
         printf("%d DISPATCH\n",ks->step);
+	ks->running = deQueue(ks->ready);
       } else if (strcmp(firstWord, "TICK") == 0) {
         printf("%d TICK\n",ks->step);
+	int count = 0;
+	sscanf(line, "%*s %d", count);
+	procsimTick(count, ks); 
       } else if (strcmp(firstWord, "BLOCK") == 0) {
         printf("%d BLOCK\n",ks->step);
+	enQueue(ks->waiting,ks->running);
+	ks->running = deQueue(ks->ready);
       } else if (strcmp(firstWord, "WAKE") == 0) {
         printf("%d WAKE\n",ks->step);
+
       } else if (strcmp(firstWord, "EXIT") == 0) {
         printf("%d EXIT\n",ks->step);
       } else if (strcmp(firstWord, "STATUS") == 0) {
         printf("%d STATUS\n",ks->step);
-      } else if (strcmp(firstWord, "#") == 0); // ignoring comments 
-        else {
+      } else {
+	ks->step--;
         printf("Command Unknown?\n");
       }
     }
